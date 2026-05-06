@@ -12,6 +12,8 @@ pub struct App {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub proxy_url: String,
+    #[serde(default)]
+    pub env_commands: Vec<String>,
     pub apps: Vec<App>,
 }
 
@@ -19,6 +21,11 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             proxy_url: "http://127.0.0.1:7890".to_string(),
+            env_commands: vec![
+                "HTTP_PROXY=http://127.0.0.1:7890".to_string(),
+                "HTTPS_PROXY=http://127.0.0.1:7890".to_string(),
+                "ALL_PROXY=http://127.0.0.1:7890".to_string(),
+            ],
             apps: Vec::new(),
         }
     }

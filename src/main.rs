@@ -94,6 +94,8 @@ fn ui(f: &mut ratatui::Frame, app: &mut AppState) {
         render_app_selector(f, area, app);
     } else if app.mode == Mode::ProxyEditor {
         render_proxy_editor(f, area, app);
+    } else if app.mode == Mode::EnvEditor {
+        render_env_editor(f, area, app);
     }
 
     if app.pending_quit {
@@ -142,10 +144,16 @@ fn render_content(f: &mut ratatui::Frame, area: Rect, app: &AppState) {
     f.render_stateful_widget(list, chunks[0], &mut list_state);
 
     let details = if let Some(selected_app) = app.config.apps.get(app.selected_index) {
+        let env_cmds = if app.config.env_commands.is_empty() {
+            "无".to_string()
+        } else {
+            app.config.env_commands.join(", ")
+        };
         format!(
-            "名称: {}\n路径: {}\n\n[Enter] 通过代理启动\n[C]     复制启动命令",
+            "名称: {}\n路径: {}\n环境命令: {}\n\n[Enter] 通过代理启动\n[C]     复制启动命令",
             selected_app.name,
-            selected_app.path.to_string_lossy()
+            selected_app.path.to_string_lossy(),
+            env_cmds
         )
     } else {
         "暂无应用\n按 [A] 添加应用".to_string()
@@ -159,7 +167,7 @@ fn render_content(f: &mut ratatui::Frame, area: Rect, app: &AppState) {
 }
 
 fn render_footer(f: &mut ratatui::Frame, area: Rect, _app: &AppState) {
-    let help = Paragraph::new("[A] 添加应用  [E] 编辑代理  [D] 删除应用  [Q] 退出")
+    let help = Paragraph::new("[A] 添加应用  [E] 编辑代理  [V] 环境命令  [D] 删除应用  [Q] 退出")
         .style(Theme::dim())
         .alignment(Alignment::Center);
 
@@ -234,6 +242,30 @@ fn render_proxy_editor(f: &mut ratatui::Frame, area: Rect, app: &AppState) {
 
     let cursor_x = popup_area.x + 1 + app.proxy_input.len() as u16;
     let cursor_y = popup_area.y + 2;
+    f.set_cursor_position((cursor_x, cursor_y));
+}
+
+fn render_env_editor(f: &mut ratatui::Frame, area: Rect, app: &AppState) {
+    let popup_area = centered_rect(area, 60, 40);
+
+    let input = Paragraph::new(app.env_input.as_str())
+        .style(Theme::text())
+        .block(
+            Block::default()
+                .title(" 编辑全局环境命令 [Enter 确认] [Esc 取消] ")
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .border_style(Theme::border())
+                .style(Theme::bg_dark()),
+        );
+
+    f.render_widget(Block::default().style(Theme::bg()), popup_area);
+    f.render_widget(input, popup_area);
+
+    let lines: Vec<&str> = app.env_input.lines().collect();
+    let cursor_y = popup_area.y + 1 + lines.len().saturating_sub(1) as u16;
+    let last_line_len = lines.last().map(|l| l.len()).unwrap_or(0) as u16;
+    let cursor_x = popup_area.x + 1 + last_line_len;
     f.set_cursor_position((cursor_x, cursor_y));
 }
 

@@ -9,6 +9,7 @@ pub enum Mode {
     Normal,
     AppSelector,
     ProxyEditor,
+    EnvEditor,
 }
 
 pub struct AppState {
@@ -18,6 +19,7 @@ pub struct AppState {
     pub all_apps: Vec<App>,
     pub app_selector_index: usize,
     pub proxy_input: String,
+    pub env_input: String,
     pub should_quit: Arc<AtomicBool>,
     pub pending_quit: bool,
     pub pending_quit_message: String,
@@ -50,6 +52,7 @@ impl AppState {
             all_apps: all_apps.clone(),
             app_selector_index: 0,
             proxy_input: String::new(),
+            env_input: String::new(),
             should_quit: Arc::new(AtomicBool::new(false)),
             pending_quit: false,
             pending_quit_message: String::new(),
@@ -63,6 +66,7 @@ impl AppState {
             Mode::Normal => self.handle_normal_key(key),
             Mode::AppSelector => self.handle_app_selector_key(key),
             Mode::ProxyEditor => self.handle_proxy_editor_key(key),
+            Mode::EnvEditor => self.handle_env_editor_key(key),
         }
     }
 
@@ -89,13 +93,13 @@ impl AppState {
             KeyCode::Enter => {
                 self.cancel_pending_quit();
                 if let Some(app) = self.config.apps.get(self.selected_index) {
-                    let _ = launch_with_proxy(app, &self.config.proxy_url);
+                    let _ = launch_with_proxy(app, &self.config.proxy_url, &self.config.env_commands);
                 }
             }
             KeyCode::Char('c') if !key.modifiers.contains(KeyModifiers::CONTROL) => {
                 self.cancel_pending_quit();
                 if let Some(app) = self.config.apps.get(self.selected_index) {
-                    let cmd = get_launch_command(app, &self.config.proxy_url);
+                    let cmd = get_launch_command(app, &self.config.proxy_url, &self.config.env_commands);
                     let _ = copy_to_clipboard(&cmd);
                 }
             }
@@ -110,6 +114,11 @@ impl AppState {
                 self.cancel_pending_quit();
                 self.mode = Mode::ProxyEditor;
                 self.proxy_input = self.config.proxy_url.clone();
+            }
+            KeyCode::Char('v') => {
+                self.cancel_pending_quit();
+                self.mode = Mode::EnvEditor;
+                self.env_input = self.config.env_commands.join("\n");
             }
             KeyCode::Char('d') => {
                 self.cancel_pending_quit();
@@ -208,6 +217,38 @@ impl AppState {
             KeyCode::Char(c) => {
                 self.cancel_pending_quit();
                 self.proxy_input.push(c);
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_env_editor_key(&mut self, key: KeyEvent) {
+        match key.code {
+            KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.try_quit();
+            }
+            KeyCode::Esc => {
+                self.cancel_pending_quit();
+                self.mode = Mode::Normal;
+            }
+            KeyCode::Enter => {
+                self.cancel_pending_quit();
+                self.config.env_commands = self
+                    .env_input
+                    .lines()
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect();
+                let _ = self.config.save();
+                self.mode = Mode::Normal;
+            }
+            KeyCode::Backspace => {
+                self.cancel_pending_quit();
+                self.env_input.pop();
+            }
+            KeyCode::Char(c) => {
+                self.cancel_pending_quit();
+                self.env_input.push(c);
             }
             _ => {}
         }
