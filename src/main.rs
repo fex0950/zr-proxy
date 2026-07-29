@@ -1,17 +1,17 @@
 use crossterm::{
     event::{self, Event},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use ratatui::{
+    Terminal,
     backend::CrosstermBackend,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     widgets::{Block, BorderType, Borders, List, ListItem, ListState, Paragraph},
-    Terminal,
 };
 use std::io;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 mod app;
@@ -96,6 +96,10 @@ fn ui(f: &mut ratatui::Frame, app: &mut AppState) {
         render_proxy_editor(f, area, app);
     } else if app.mode == Mode::EnvEditor {
         render_env_editor(f, area, app);
+    } else if app.mode == Mode::GlobalCommandRunner {
+        render_global_command_runner(f, area, app);
+    } else if app.mode == Mode::GlobalCommandEditor {
+        render_global_command_editor(f, area, app);
     }
 
     if app.pending_quit {
@@ -149,11 +153,17 @@ fn render_content(f: &mut ratatui::Frame, area: Rect, app: &AppState) {
         } else {
             app.config.env_commands.join(", ")
         };
+        let global_cmds_info = if app.config.global_commands.is_empty() {
+            String::new()
+        } else {
+            format!("\n全局命令: {} 条", app.config.global_commands.len())
+        };
         format!(
-            "名称: {}\n路径: {}\n环境命令: {}\n\n[Enter] 通过代理启动\n[C]     复制启动命令",
+            "名称: {}\n路径: {}\n环境命令: {}{}\n\n[Enter] 通过代理启动\n[C]     复制启动命令",
             selected_app.name,
             selected_app.path.to_string_lossy(),
-            env_cmds
+            env_cmds,
+            global_cmds_info,
         )
     } else {
         "暂无应用\n按 [A] 添加应用".to_string()
@@ -167,9 +177,11 @@ fn render_content(f: &mut ratatui::Frame, area: Rect, app: &AppState) {
 }
 
 fn render_footer(f: &mut ratatui::Frame, area: Rect, _app: &AppState) {
-    let help = Paragraph::new("[A] 添加应用  [E] 编辑代理  [V] 环境命令  [D] 删除应用  [Q] 退出")
-        .style(Theme::dim())
-        .alignment(Alignment::Center);
+    let help = Paragraph::new(
+        "[A] 添加应用  [E] 编辑代理  [V] 环境命令  [G] 全局命令  [D] 删除应用  [Q] 退出",
+    )
+    .style(Theme::dim())
+    .alignment(Alignment::Center);
 
     let block = Block::default()
         .borders(Borders::TOP)
@@ -266,6 +278,63 @@ fn render_env_editor(f: &mut ratatui::Frame, area: Rect, app: &AppState) {
     let cursor_y = popup_area.y + 1 + lines.len().saturating_sub(1) as u16;
     let last_line_len = lines.last().map(|l| l.len()).unwrap_or(0) as u16;
     let cursor_x = popup_area.x + 1 + last_line_len;
+    f.set_cursor_position((cursor_x, cursor_y));
+}
+
+fn render_global_command_runner(f: &mut ratatui::Frame, area: Rect, app: &AppState) {
+    let popup_area = centered_rect(area, 50, 50);
+
+    let items: Vec<ListItem> = app
+        .config
+        .global_commands
+        .iter()
+        .map(|cmd| ListItem::new(cmd.as_str()).style(Theme::text()))
+        .collect();
+
+    let list = List::new(items)
+        .block(
+            Block::default()
+                .title(" 全局命令 [Enter 执行] [E 编辑] [A 添加] [D 删除] [Esc 返回] ")
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .border_style(Theme::border())
+                .style(Theme::bg_dark()),
+        )
+        .highlight_style(Theme::selected())
+        .highlight_symbol("> ");
+
+    let mut list_state = ListState::default();
+    list_state.select(Some(app.global_cmd_index));
+
+    f.render_widget(Block::default().style(Theme::bg()), popup_area);
+    f.render_stateful_widget(list, popup_area, &mut list_state);
+}
+
+fn render_global_command_editor(f: &mut ratatui::Frame, area: Rect, app: &AppState) {
+    let popup_area = centered_rect(area, 50, 20);
+
+    let title = if app.global_cmd_editing_index.is_some() {
+        " 编辑全局命令 [Enter 确认] [Esc 取消] "
+    } else {
+        " 添加全局命令 [Enter 确认] [Esc 取消] "
+    };
+
+    let input = Paragraph::new(app.global_cmd_input.as_str())
+        .style(Theme::text())
+        .block(
+            Block::default()
+                .title(title)
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .border_style(Theme::border())
+                .style(Theme::bg_dark()),
+        );
+
+    f.render_widget(Block::default().style(Theme::bg()), popup_area);
+    f.render_widget(input, popup_area);
+
+    let cursor_x = popup_area.x + 1 + app.global_cmd_input.len() as u16;
+    let cursor_y = popup_area.y + 2;
     f.set_cursor_position((cursor_x, cursor_y));
 }
 

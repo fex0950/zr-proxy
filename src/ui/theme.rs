@@ -10,11 +10,8 @@ impl Theme {
     pub const FG: Color = Color::Rgb(192, 202, 245);
     pub const FG_DIM: Color = Color::Rgb(86, 95, 137);
 
-    pub const BLUE: Color = Color::Rgb(122, 162, 247);
     pub const PURPLE: Color = Color::Rgb(187, 154, 247);
     pub const PINK: Color = Color::Rgb(255, 121, 198);
-    pub const ORANGE: Color = Color::Rgb(255, 158, 100);
-    pub const GREEN: Color = Color::Rgb(158, 206, 106);
 
     pub const BORDER: Color = Color::Rgb(59, 66, 97);
 
@@ -32,10 +29,6 @@ impl Theme {
 
     pub fn dim() -> Style {
         Style::default().fg(Self::FG_DIM)
-    }
-
-    pub fn blue() -> Style {
-        Style::default().fg(Self::BLUE)
     }
 
     pub fn purple() -> Style {

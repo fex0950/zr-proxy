@@ -1,7 +1,7 @@
 use crate::ui::theme::Theme;
 use ratatui::widgets::{Block, BorderType, Borders};
 
-pub fn titled_block(title: &str) -> Block {
+pub fn titled_block(title: &str) -> Block<'_> {
     Block::default()
         .title(title)
         .borders(Borders::ALL)

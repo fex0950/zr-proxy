@@ -1,8 +1,8 @@
 use crate::config::{App, Config};
 use crate::macos::{copy_to_clipboard, get_launch_command, launch_with_proxy, scan_applications};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
@@ -10,6 +10,8 @@ pub enum Mode {
     AppSelector,
     ProxyEditor,
     EnvEditor,
+    GlobalCommandRunner,
+    GlobalCommandEditor,
 }
 
 pub struct AppState {
@@ -20,6 +22,9 @@ pub struct AppState {
     pub app_selector_index: usize,
     pub proxy_input: String,
     pub env_input: String,
+    pub global_cmd_input: String,
+    pub global_cmd_index: usize,
+    pub global_cmd_editing_index: Option<usize>,
     pub should_quit: Arc<AtomicBool>,
     pub pending_quit: bool,
     pub pending_quit_message: String,
@@ -53,6 +58,9 @@ impl AppState {
             app_selector_index: 0,
             proxy_input: String::new(),
             env_input: String::new(),
+            global_cmd_input: String::new(),
+            global_cmd_index: 0,
+            global_cmd_editing_index: None,
             should_quit: Arc::new(AtomicBool::new(false)),
             pending_quit: false,
             pending_quit_message: String::new(),
@@ -67,6 +75,8 @@ impl AppState {
             Mode::AppSelector => self.handle_app_selector_key(key),
             Mode::ProxyEditor => self.handle_proxy_editor_key(key),
             Mode::EnvEditor => self.handle_env_editor_key(key),
+            Mode::GlobalCommandRunner => self.handle_global_command_runner_key(key),
+            Mode::GlobalCommandEditor => self.handle_global_command_editor_key(key),
         }
     }
 
@@ -93,13 +103,15 @@ impl AppState {
             KeyCode::Enter => {
                 self.cancel_pending_quit();
                 if let Some(app) = self.config.apps.get(self.selected_index) {
-                    let _ = launch_with_proxy(app, &self.config.proxy_url, &self.config.env_commands);
+                    let _ =
+                        launch_with_proxy(app, &self.config.proxy_url, &self.config.env_commands);
                 }
             }
             KeyCode::Char('c') if !key.modifiers.contains(KeyModifiers::CONTROL) => {
                 self.cancel_pending_quit();
                 if let Some(app) = self.config.apps.get(self.selected_index) {
-                    let cmd = get_launch_command(app, &self.config.proxy_url, &self.config.env_commands);
+                    let cmd =
+                        get_launch_command(app, &self.config.proxy_url, &self.config.env_commands);
                     let _ = copy_to_clipboard(&cmd);
                 }
             }
@@ -129,6 +141,17 @@ impl AppState {
                         self.selected_index = self.config.apps.len() - 1;
                     }
                     let _ = self.config.save();
+                }
+            }
+            KeyCode::Char('g') => {
+                self.cancel_pending_quit();
+                if self.config.global_commands.is_empty() {
+                    self.global_cmd_input.clear();
+                    self.global_cmd_editing_index = None;
+                    self.mode = Mode::GlobalCommandEditor;
+                } else {
+                    self.mode = Mode::GlobalCommandRunner;
+                    self.global_cmd_index = 0;
                 }
             }
             _ => {}
@@ -249,6 +272,104 @@ impl AppState {
             KeyCode::Char(c) => {
                 self.cancel_pending_quit();
                 self.env_input.push(c);
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_global_command_runner_key(&mut self, key: KeyEvent) {
+        match key.code {
+            KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.try_quit();
+            }
+            KeyCode::Esc => {
+                self.cancel_pending_quit();
+                self.mode = Mode::Normal;
+            }
+            KeyCode::Up | KeyCode::Char('k') => {
+                self.cancel_pending_quit();
+                if self.global_cmd_index > 0 {
+                    self.global_cmd_index -= 1;
+                }
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                self.cancel_pending_quit();
+                if self.global_cmd_index < self.config.global_commands.len().saturating_sub(1) {
+                    self.global_cmd_index += 1;
+                }
+            }
+            KeyCode::Enter => {
+                self.cancel_pending_quit();
+                if let Some(cmd) = self.config.global_commands.get(self.global_cmd_index) {
+                    let _ = std::process::Command::new("sh").arg("-c").arg(cmd).spawn();
+                }
+            }
+            KeyCode::Char('e') => {
+                self.cancel_pending_quit();
+                if let Some(cmd) = self.config.global_commands.get(self.global_cmd_index) {
+                    self.global_cmd_input = cmd.clone();
+                    self.global_cmd_editing_index = Some(self.global_cmd_index);
+                    self.mode = Mode::GlobalCommandEditor;
+                }
+            }
+            KeyCode::Char('a') => {
+                self.cancel_pending_quit();
+                self.global_cmd_input.clear();
+                self.global_cmd_editing_index = None;
+                self.mode = Mode::GlobalCommandEditor;
+            }
+            KeyCode::Char('d') => {
+                self.cancel_pending_quit();
+                if !self.config.global_commands.is_empty()
+                    && self.global_cmd_index < self.config.global_commands.len()
+                {
+                    self.config.global_commands.remove(self.global_cmd_index);
+                    if self.global_cmd_index >= self.config.global_commands.len()
+                        && !self.config.global_commands.is_empty()
+                    {
+                        self.global_cmd_index = self.config.global_commands.len() - 1;
+                    }
+                    let _ = self.config.save();
+                    if self.config.global_commands.is_empty() {
+                        self.mode = Mode::Normal;
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_global_command_editor_key(&mut self, key: KeyEvent) {
+        match key.code {
+            KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.try_quit();
+            }
+            KeyCode::Esc => {
+                self.cancel_pending_quit();
+                self.mode = Mode::GlobalCommandRunner;
+            }
+            KeyCode::Enter => {
+                self.cancel_pending_quit();
+                if let Some(index) = self.global_cmd_editing_index {
+                    if index < self.config.global_commands.len() {
+                        self.config.global_commands[index] = self.global_cmd_input.clone();
+                    }
+                } else {
+                    self.config
+                        .global_commands
+                        .push(self.global_cmd_input.clone());
+                    self.global_cmd_index = self.config.global_commands.len().saturating_sub(1);
+                }
+                let _ = self.config.save();
+                self.mode = Mode::GlobalCommandRunner;
+            }
+            KeyCode::Backspace => {
+                self.cancel_pending_quit();
+                self.global_cmd_input.pop();
+            }
+            KeyCode::Char(c) => {
+                self.cancel_pending_quit();
+                self.global_cmd_input.push(c);
             }
             _ => {}
         }

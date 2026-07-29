@@ -14,6 +14,8 @@ pub struct Config {
     pub proxy_url: String,
     #[serde(default)]
     pub env_commands: Vec<String>,
+    #[serde(default)]
+    pub global_commands: Vec<String>,
     pub apps: Vec<App>,
 }
 
@@ -26,6 +28,7 @@ impl Default for Config {
                 "HTTPS_PROXY=http://127.0.0.1:7890".to_string(),
                 "ALL_PROXY=http://127.0.0.1:7890".to_string(),
             ],
+            global_commands: Vec::new(),
             apps: Vec::new(),
         }
     }
