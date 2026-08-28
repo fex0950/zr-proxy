@@ -48,10 +48,24 @@ cargo install --path . --locked
 
 代码更新后重新执行上述命令（可加 `--force` 强制覆盖）即可升级。
 
+项目也提供了全局入口 `.local/bin/zr-proxy`（内部调用 `run.sh`，缺少 release 二进制时会自动构建）。将项目的 `.local/bin` 加入 `PATH` 后即可从任意目录运行：
+
+```bash
+export PATH="$PWD/.local/bin:$PATH"
+zr-proxy
+```
+
+如果希望永久安装到用户级命令目录，可以创建链接：
+
+```bash
+mkdir -p "$HOME/.local/bin"
+ln -sf "$PWD/.local/bin/zr-proxy" "$HOME/.local/bin/zr-proxy"
+```
+
 ## 使用方法
 
 ```bash
-./target/release/zr-proxy
+zr-proxy
 ```
 
 ### 快捷键
