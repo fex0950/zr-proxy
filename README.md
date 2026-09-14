@@ -12,6 +12,22 @@
 
 ## 安装
 
+### 一键安装（推荐，无需 Rust 环境）
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/fex0950/zr-proxy/master/install.sh | sh
+```
+
+脚本会自动识别 Mac 芯片架构（Apple Silicon / Intel），从 [GitHub Releases](https://github.com/fex0950/zr-proxy/releases) 下载预编译二进制并安装到 PATH 目录（优先 `/usr/local/bin`，否则 `~/.local/bin`），安装完成后即可在任意目录运行 `zr-proxy`。
+
+### 从 GitHub 直接安装（需要 Rust 工具链）
+
+无需克隆仓库：
+
+```bash
+cargo install --git https://github.com/fex0950/zr-proxy --locked
+```
+
 ### 从源码构建
 
 ```bash
@@ -21,14 +37,6 @@ cargo build --release
 ```
 
 可执行文件将位于 `target/release/zr-proxy`
-
-### 从 GitHub 直接安装（推荐）
-
-无需克隆仓库，任何装有 Rust 工具链的机器上执行：
-
-```bash
-cargo install --git https://github.com/fex0950/zr-proxy --locked
-```
 
 ### 全局安装（本地源码）
 
