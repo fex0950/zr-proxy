@@ -15,12 +15,30 @@
 ### 从源码构建
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/fex0950/zr-proxy.git
 cd zr-proxy
 cargo build --release
 ```
 
 可执行文件将位于 `target/release/zr-proxy`
+
+### 从 GitHub 直接安装（推荐）
+
+无需克隆仓库，任何装有 Rust 工具链的机器上执行：
+
+```bash
+cargo install --git https://github.com/fex0950/zr-proxy --locked
+```
+
+### 全局安装（本地源码）
+
+```bash
+cargo install --path . --locked
+```
+
+二进制将被安装到 `~/.cargo/bin/zr-proxy`（需确保该目录已在 `PATH` 中），之后可在任意目录直接运行 `zr-proxy`。
+
+代码更新后重新执行上述命令（可加 `--force` 强制覆盖）即可升级。
 
 ## 使用方法
 
