@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 x86_64 编译目标
+        run: rustup target add x86_64-apple-darwin
+
+      - name: 校验 tag 与 Cargo.toml 版本一致
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          toml_version="$(grep -m1 '^version' Cargo.toml | sed 's/.*"\(.*\)"/\1/')"
+          if [ "$tag_version" != "$toml_version" ]; then
+            echo "错误: tag $GITHUB_REF_NAME 与 Cargo.toml 中的 version $toml_version 不一致" >&2
+            exit 1
+          fi
+
+      - name: 构建两个架构的 release 二进制
+        run: |
+          cargo build --release --locked --target aarch64-apple-darwin
+          cargo build --release --locked --target x86_64-apple-darwin
+
+      - name: 打包产物
+        run: |
+          mkdir -p dist
+          for target in aarch64-apple-darwin x86_64-apple-darwin; do
+            cp "target/$target/release/zr-proxy" dist/zr-proxy
+            tar -czf "dist/zr-proxy-${GITHUB_REF_NAME}-${target}.tar.gz" -C dist zr-proxy
+          done
+
+      - name: 创建 GitHub Release 并上传产物
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "$GITHUB_REF_NAME" dist/*.tar.gz --title "zr-proxy $GITHUB_REF_NAME" --generate-notes

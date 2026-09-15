@@ -70,6 +70,19 @@ cargo install --path . --locked
 
 配置文件保存在 `~/Library/Application Support/zr-proxy/config.toml`
 
+## 发版（维护者）
+
+推送 `v*` 标签即可触发 GitHub Actions 自动构建并创建 Release：
+
+```bash
+# 1. 修改 Cargo.toml 中的 version（需与标签一致）
+# 2. 提交并打标签
+git tag v0.2.0
+git push origin master --tags
+```
+
+工作流会自动构建 Apple Silicon / Intel 两个架构的二进制并上传到 [Releases](https://github.com/fex0950/zr-proxy/releases)。
+
 ## 技术栈
 
 - Rust
